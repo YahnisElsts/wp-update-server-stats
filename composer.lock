@@ -4,8 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "23b69f881f83111a07e75428b3b4bf35",
-    "content-hash": "0aeb9d0d9e73ba9f77456a14c9092e12",
+    "content-hash": "f65939c4c4b2090c140f5465101f3417",
     "packages": [
         {
             "name": "j4mie/idiorm",
@@ -66,7 +65,7 @@
                 "orm",
                 "query builder"
             ],
-            "time": "2016-12-14 06:28:26"
+            "time": "2016-12-14T06:28:26+00:00"
         }
     ],
     "packages-dev": [],
@@ -75,6 +74,9 @@
     "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
+    "platform": {
+        "php": ">=5.5",
+        "ext-sqlite3": "*"
+    },
     "platform-dev": []
 }
