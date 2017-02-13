@@ -1,4 +1,9 @@
 {
+	"autoload": {
+		"psr-4": {
+			"Wpup\\": "src/"
+		}
+	},
 	"require": {
 		"j4mie/idiorm": "1.5.*"
 	}
