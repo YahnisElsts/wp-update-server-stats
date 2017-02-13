@@ -1,6 +1,7 @@
 {
 	"name": "yahnis-elsts/wp-update-server-stats",
 	"description": "Gather statistics from wp-update-server logs.",
+	"type": "project",
 	"license": "MIT",
 	"authors": [
 		{
