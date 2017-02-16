@@ -19,7 +19,10 @@ class BasicLogAnalyser {
 	/**
 	 * @var string[] We'll generate daily stats for these API request parameters.
 	 */
-	private $enabledParameters = array('installed_version', 'wp_version', 'php_version', 'action');
+	private $enabledParameters = array(
+		'installed_version', 'wp_version', 'php_version', 'action',
+		'wp_version_aggregate', 'php_version_aggregate',
+	);
 
 	/**
 	 * @var int[string] Lookup table for metric IDs.
@@ -39,6 +42,11 @@ class BasicLogAnalyser {
 	 * @var Summary Stats for the current date.
 	 */
 	private $dailyStats = null;
+
+	/**
+	 * @var int The number of log lines parsed that have the current date.
+	 */
+	private $currentDayLineCount = 0;
 
 	private $encounteredSlugs = array();
 
@@ -108,7 +116,20 @@ class BasicLogAnalyser {
 
 		$this->currentLineNumber = 0;
 
+		$insertLogEntry = $this->database->prepare(
+			'INSERT OR IGNORE INTO "scratch"."log" (
+				slug_id, "action", installed_version, wp_version, php_version, 
+				wp_version_aggregate, php_version_aggregate, site_url
+			)
+			 VALUES(
+			 	:slug_id, :action, :installed_version, :wp_version, :php_version, 
+			 	:wp_version_aggregate, :php_version_aggregate, :site_url
+			 )'
+		);
+
+		$this->database->beginTransaction();
 		$lastHour = -1;
+
 		while (!feof($input)) {
 			$this->currentLineNumber++;
 
@@ -142,47 +163,34 @@ class BasicLogAnalyser {
 			}
 
 			if ($date !== $this->currentDate) {
+				$this->database->commit();
+
 				if (isset($this->currentDate)) {
-					$this->flushSlugs();
 					$this->flushDay();
 				}
+
 				$this->currentDate = $date;
+				$this->currentDayLineCount = 0;
 				printf('%s [', $this->currentDate);
 				$lastHour = -1;
+
+				$this->database->beginTransaction();
 			}
 
-			//Some sites obfuscate their WordPress version number or replace it with something weird. We don't
-			//want to pollute the stats with those bogus numbers, so we'll group them all together.
-			if (isset($entry['wp_version'])) {
-				if (($entry['wp_version'] !== '-') && (!$this->looksLikeNormalWpVersion($entry['wp_version']))) {
-					$entry['wp_version'] = self::INVALID_VER_REPLACEMENT;
-				}
-			}
+			$insertLogEntry->execute(array(
+				':slug_id' => $this->slugToId($slug),
+				':action' => $entry['action'],
+				':installed_version' => $entry['installed_version'],
+				':wp_version' => $entry['wp_version'],
+				':wp_version_aggregate' => $entry['wp_version_aggregate'],
+				':php_version' => $entry['php_version'],
+				':php_version_aggregate' => $entry['php_version_aggregate'],
+				':site_url' => $entry['site_url'],
+			));
+			$this->currentDayLineCount++;
 
 			//Track the total number of requests + uniques.
 			$this->dailyStats->recordEvent($date, $slug, 'total_hits', '', $entry['site_url']);
-
-			//Aggregate WordPress and PHP patch versions (e.g. 4.7.1 => 4.7).
-			foreach(['wp_version', 'php_version'] as $field) {
-				if (isset($entry[$field])) {
-					$aggregate = null;
-					if (preg_match('/^(\d{1,2}\.\d{1,3})(?:\.|$)/', $entry[$field], $matches)) {
-						$aggregate = $matches[1];
-					} else if ($entry[$field] === self::INVALID_VER_REPLACEMENT) {
-						$aggregate = $entry[$field];
-					}
-					if ($aggregate !== null) {
-						$this->dailyStats->recordEvent($date, $slug, $field . '_aggregate', $aggregate, $entry['site_url']);
-					}
-				}
-			}
-
-			foreach ($this->enabledParameters as $parameter) {
-				if (!isset($entry[$parameter])) {
-					continue;
-				}
-				$this->dailyStats->recordEvent($date, $slug, $parameter, $entry[$parameter], $entry['site_url']);
-			}
 
 			//Rudimentary progress bar.
 			$thisHour = intval(gmdate('H', $timestamp));
@@ -192,7 +200,7 @@ class BasicLogAnalyser {
 			}
 		}
 
-		$this->flushSlugs();
+		$this->database->commit();
 		$this->flushDay();
 		$this->output("Done.");
 	}
@@ -205,16 +213,16 @@ class BasicLogAnalyser {
 	 * @throws LogParserException
 	 */
 	private function parseLogEntry($line) {
-		$result = array();
+		$columns = array(
+			'http_method', 'action', 'slug', 'installed_version', 'wp_version',
+			'site_url', 'query_string',
+		);
+		$result = array_fill_keys($columns, null);
 
 		if ( preg_match('/^\[(?P<timestamp>[^\]]+)\]\s(?P<ip>\S+)\s+(?P<remainder>.+)$/', $line, $matches) ) {
 			$result['timestamp'] = strtotime($matches['timestamp']);
 			$result['ip'] = $matches['ip'];
 
-			$columns = array(
-				'http_method', 'action', 'slug', 'installed_version', 'wp_version',
-				'site_url', 'query_string',
-			);
 			$values = explode("\t", $matches['remainder']);
 			foreach($values as $index => $value) {
 				if ( isset($columns[$index]) ) {
@@ -222,6 +230,10 @@ class BasicLogAnalyser {
 				}
 			}
 
+			//PHP version and locale were added much later than other parameters, so they
+			//don't have their own log columns. Extract them from the query string.
+			$result['php_version'] = null;
+			$result['locale'] = null;
 			if (!empty($result['query_string'])) {
 				parse_str($result['query_string'], $parameters);
 				if (isset($parameters['php'])) {
@@ -230,6 +242,22 @@ class BasicLogAnalyser {
 				if (isset($parameters['locale'])) {
 					$result['locale'] = strval($parameters['locale']);
 				}
+			}
+
+			//Some sites obfuscate their WordPress version number or replace it with something weird. We don't
+			//want to pollute the stats with those bogus numbers, so we'll group them all together.
+			if (isset($result['wp_version'])) {
+				if ($result['wp_version'] === '') {
+					$result['wp_version'] = '-';
+				}
+				if (($result['wp_version'] !== '-') && (!$this->looksLikeNormalWpVersion($result['wp_version']))) {
+					$result['wp_version'] = self::INVALID_VER_REPLACEMENT;
+				}
+			}
+
+			//Aggregate WordPress and PHP patch versions (e.g. 4.7.1 => 4.7).
+			foreach(['wp_version', 'php_version'] as $field) {
+				$result[$field . '_aggregate'] = $this->getAggregateVersion($result[$field]);
 			}
 		} else {
 			throw new LogParserException(sprintf(
@@ -241,8 +269,42 @@ class BasicLogAnalyser {
 		return $result;
 	}
 
+	/**
+	 * Get the major and minor parts of a version number.
+	 * For example, "1.2.3-RC1" becomes "1.2".
+	 *
+	 * @param string|null $versionNumber
+	 * @return string|null
+	 */
+	private function getAggregateVersion($versionNumber) {
+		if ($versionNumber === null) {
+			return null;
+		} else if (preg_match('/^(\d{1,2}\.\d{1,3})(?:\.|$)/', $versionNumber, $matches)) {
+			return $matches[1];
+		} else if ($versionNumber === self::INVALID_VER_REPLACEMENT) {
+			return $versionNumber;
+		}
+		return null;
+	}
+
 	private function flushDay() {
+		$startTime = microtime(true);
 		$this->database->beginTransaction();
+
+		$this->flushSlugs();
+
+		foreach($this->enabledParameters as $metricName) {
+			$statement = $this->database->prepare(
+				"INSERT OR REPLACE INTO stats(datestamp, slug_id, metric_id, value, unique_sites) 
+				 SELECT :datestamp, slug_id, :metric_id, \"$metricName\", COUNT(*) AS unique_sites 
+				 FROM scratch.log
+				 GROUP BY slug_id, \"$metricName\""
+			);
+			$statement->execute(array(
+				':datestamp' => $this->currentDate,
+				':metric_id' => $this->metricToId($metricName),
+			));
+		}
 
 		foreach($this->dailyStats->getIterator() as $row) {
 			$this->insertStatement->execute([
@@ -257,8 +319,16 @@ class BasicLogAnalyser {
 		}
 		$this->dailyStats->clear();
 
+		//Clear the temporary table.
+		$this->database->exec('DELETE FROM scratch.log');
+
 		$this->database->commit();
-		$this->output("]");
+
+		$this->output(sprintf(
+			"] %s lines, DB flush: %.3fs",
+			number_format($this->currentDayLineCount, 0, '.', ','),
+			microtime(true) - $startTime
+		));
 		flush();
 	}
 
@@ -442,6 +512,30 @@ class BasicLogAnalyser {
 		);
 
 		$this->database->exec('CREATE UNIQUE INDEX IF NOT EXISTS id_context on stats (datestamp, slug_id, metric_id, value);');
+
+		//A temporary database for one day of log data.
+		$this->database->exec("ATTACH DATABASE '' AS scratch");
+
+		$this->database->exec(
+			'CREATE TABLE scratch.log (
+				"slug_id" INTEGER  NOT NULL,
+				"action" VARCHAR(30) NULL,
+				"installed_version" VARCHAR(30) NULL,
+				"wp_version" VARCHAR(20) NULL,
+				"php_version" varCHAR(20) NULL,
+				"wp_version_aggregate" VARCHAR(15) NULL,
+				"php_version_aggregate" VARCHAR(15) NULL,
+				"site_url" VARCHAR(100) NULL
+			)'
+		);
+
+		//For most statistics, we only care about unique sites, not total requests.
+		$this->database->exec(
+			'CREATE UNIQUE INDEX scratch.id_unique_requests ON log ( 
+				"slug_id" ASC,
+				"site_url" ASC
+			)'
+		);
 	}
 
 	private function populateLookUps() {

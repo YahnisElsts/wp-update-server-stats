@@ -7,6 +7,8 @@ class Summary {
 	 */
 	public $items = [];
 
+	public $pairs = [];
+
 	public function recordEvent($date, $slug, $metric, $value, $siteUrl) {
 		$array = &$this->items;
 		foreach([$date, $slug, $metric, $value] as $key) {
@@ -27,6 +29,7 @@ class Summary {
 
 	public function clear() {
 		$this->items = [];
+		$this->pairs = [];
 	}
 
 	public function getIterator() {
