@@ -7,26 +7,20 @@ class Report {
 	private $slug;
 	private $dateRange;
 
-	public function __construct(PDO $database, $parameters = null) {
+	public function __construct(PDO $database, $slug, $parameters = null) {
+		$this->slug = $slug;
+
 		if (empty($parameters)) {
 			$parameters = $_GET;
 		}
 
 		$from = isset($parameters['from']) ? strval($parameters['from']) : null;
 		$to = isset($parameters['to']) ? strval($parameters['to']) : null;
-		$dateRange = new DateRange($from, $to);
+		$dateRange = new DateRange($from . ' UTC', $to . ' UTC');
 		$this->dateRange = $dateRange;
 
-		$availableSlugs = $database->query('SELECT slug FROM slugs')->fetchAll(PDO::FETCH_COLUMN);
-		natcasesort($availableSlugs);
-
-		$this->slug = isset($parameters['slug']) ? strval($parameters['slug']) : null;
-		if (empty($this->slug) || !in_array($this->slug, $availableSlugs)) {
-			$this->slug = reset($availableSlugs);
-		}
-
 		$this->metricQuery = $database->prepare(
-			'SELECT "datestamp", "value", "unique_sites", "requests"
+			'SELECT "datestamp", COALESCE("value", \'N/A\') as "value", "unique_sites", "requests"
 			 FROM stats
 			 JOIN slugs ON slugs.slug_id = stats.slug_id
 			 JOIN metrics ON metrics.metric_id = stats.metric_id
@@ -38,26 +32,51 @@ class Report {
 		);
 	}
 
+	private function cache($func, $key = null) {
+		static $cachedResults = [];
+		if ($key === null) {
+			$key = is_string($func) ? $func : spl_object_hash($func);
+		}
+		if (!array_key_exists($key, $cachedResults)) {
+			$cachedResults[$key] = $func();
+		}
+		return $cachedResults[$key];
+	}
+
 	public function getActiveVersionChart() {
-		return $this->getChart('installed_version', 'unique_sites', 'version_compare');
+		return $this->cache(function() {
+			return $this->getChart('installed_version', 'version_compare');
+		}, __METHOD__);
 	}
 
 	public function getWordPressVersionChart() {
-		return $this->getChart('wp_version_aggregate', 'unique_sites', 'version_compare');
+		return $this->cache(function() {
+			return $this->getChart('wp_version_aggregate', 'version_compare');
+		}, __METHOD__);
 	}
 
 	public function getPhpVersionChart() {
-		return $this->getChart('php_version_aggregate', 'unique_sites', 'version_compare');
+		return $this->cache(function() {
+			return $this->getChart('php_version_aggregate', 'version_compare');
+		}, __METHOD__);
 	}
 
 	public function getRequestChart() {
-		return $this->getChart('action', 'requests', 'strcasecmp', 0);
+		return $this->cache(function() {
+			return $this->getChart('action', 'strcasecmp', 'requests', 0);
+		}, __METHOD__);
+	}
+
+	public function getActiveInstallsChart() {
+		return $this->cache(function() {
+			return $this->getChart('total_hits')->renameEmptyValueSeries('Unique sites');
+		}, __METHOD__);
 	}
 
 	public function getChart(
 		$metricName,
-		$lineValueColumn = 'unique_sites',
 		$sortCallback = null,
+		$lineValueColumn = 'unique_sites',
 		$otherGroupFraction = 0.15,
 		$groupDayThreshold = 0.1
 	) {
@@ -76,5 +95,54 @@ class Report {
 			$otherGroupFraction,
 			$groupDayThreshold
 		);
+	}
+
+	public function getTotalRequests() {
+		return $this->cache(function() {
+			$requestStats = $this->getRequestChart();
+			return array_sum($requestStats->getTotalsByDate());
+		}, __METHOD__);
+	}
+
+	/**
+	 * Get the average number of active installs over the last X days.
+	 *
+	 * @param int $days
+	 * @return float
+	 */
+	public function getActiveInstalls($days = 7) {
+		if ($days <= 0) {
+			throw new \LogicException('The number of days must be an integer greater than zero');
+		}
+		return array_sum(array_slice($this->getActiveInstallsChart()->getTotalsByDate(), -$days)) / $days;
+	}
+
+	public function getInstallsPerDay() {
+		$dailyStats = $this->getActiveInstallsChart()->getTotalsByDate();
+
+		//You can't compute a trend from one data point.
+		if (count($dailyStats) <= 1) {
+			return 0;
+		}
+
+		$firstDay = $this->dateRange->startDate();
+		$lastDay = $this->dateRange->endDate();
+		return ($dailyStats[$lastDay] - $dailyStats[$firstDay]) / count($dailyStats);
+	}
+
+	public function getRequestsPerSite() {
+		$totalUniquesPerDay = array_sum($this->getActiveInstallsChart()->getTotalsByDate());
+		if (($totalUniquesPerDay > 0) && ($this->getTotalRequests() > 0)) {
+			return $this->getTotalRequests() / $totalUniquesPerDay;
+		}
+		return 0;
+	}
+
+	public function getDateRange() {
+		return $this->dateRange;
+	}
+
+	public function getSlug() {
+		return $this->slug;
 	}
 }

@@ -60,7 +60,7 @@ class ChartData {
 				continue;
 			}
 
-			if ((($groupedTotal + $keyTotal)/$total) <= $otherGroupFraction) {
+			if (($total > 0) && (($groupedTotal + $keyTotal)/$total) <= $otherGroupFraction) {
 				//printf('Grouping key "%s" that has %d total events<br>', $key, $keyTotal);
 				$groupedTotal += $keyTotal;
 				foreach($data[$key] as $timestamp => $cnt) {
@@ -94,13 +94,20 @@ class ChartData {
 		//var_dump($data, $totalsByDate);
 	}
 
+	public function renameEmptyValueSeries($newName) {
+		$series = $this->stats[''];
+		$this->stats[$newName] = $series;
+		unset($this->stats['']);
+		return $this;
+	}
+
 	public function getAreaChartData() {
 		$rows = [];
 
 		//X-axis labels
 		$rows[] = array_merge(
 			[['label' => 'Date', 'type' => 'date']],
-			array_keys($this->stats)
+			array_map('strval', array_keys($this->stats))
 		);
 
 		foreach($this->dateRange->getDateKeys() as $day) {
@@ -129,12 +136,23 @@ class ChartData {
 		$day = reset(array_keys(array_slice($this->totalsByDate, $dayIndex, 1)));
 
 		$rows = [];
+		$isAllZero = true;
 		foreach($this->stats as $key => $dailyStats) {
-			$rows[] = [$key, isset($dailyStats[$day]) ? $dailyStats[$day] : 0];
+			$pointValue = isset($dailyStats[$day]) ? $dailyStats[$day] : 0;
+			$rows[] = [strval($key), $pointValue];
+			$isAllZero = $isAllZero && ($pointValue === 0);
 		}
 		$rows = array_reverse($rows);
 
-		array_unshift($rows, ['Date', $label]);
-		return $rows;
+		array_unshift($rows, ['Key', $label]);
+
+		if (!$isAllZero) {
+			return $rows;
+		} else {
+			return [
+				['Key', 'Value'],
+				['No data for ' . $day, 1]
+			];
+		}
 	}
 }

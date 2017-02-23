@@ -20,6 +20,8 @@
 	"require": {
 		"php": ">=5.5",
 		"ext-sqlite3": "*",
-		"j4mie/idiorm": "1.5.*"
+		"j4mie/idiorm": "1.5.*",
+		"twbs/bootstrap": "^3.3",
+		"components/jquery": "^3.1"
 	}
 }

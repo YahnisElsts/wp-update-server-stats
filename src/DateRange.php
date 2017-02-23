@@ -51,4 +51,8 @@ class DateRange {
 	public function endDate() {
 		return gmdate('Y-m-d', $this->endTimestamp);
 	}
+
+	public function getDuration() {
+		return $this->endTimestamp - $this->startTimestamp;
+	}
 }

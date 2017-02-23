@@ -1,0 +1,40 @@
+body {
+	padding-top: 50px;
+}
+
+.chart {
+	width: 100%;
+	height: 400px;
+}
+
+.stats-sub-field {
+	th:first-of-type {
+		padding-left: 1em;
+	}
+}
+
+#summary-sidebar {
+	td {
+		text-align: right;
+	}
+}
+
+#selected-slug {
+	max-width: 300px;
+	text-overflow: ellipsis;
+	margin-right: 10px;
+}
+
+.positive-change {
+	color: green;
+	&:before {
+		content: '+';
+	}
+}
+
+.negative-change {
+	color: red;
+	&:before {
+		content: '-';
+	}
+}
