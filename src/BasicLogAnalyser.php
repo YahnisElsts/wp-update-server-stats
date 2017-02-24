@@ -1,7 +1,6 @@
 <?php
 namespace Wpup;
 use \PDO, \PDOStatement;
-require 'Summary.php';
 
 class BasicLogAnalyser {
 	/**
@@ -38,10 +37,6 @@ class BasicLogAnalyser {
 	 * @var string The date that's currently being processed.
 	 */
 	private $currentDate = null;
-	/**
-	 * @var Summary Stats for the current date.
-	 */
-	private $dailyStats = null;
 
 	/**
 	 * @var int The number of log lines parsed that have the current date.
@@ -88,7 +83,6 @@ class BasicLogAnalyser {
 			$toTimestamp = strtotime($toTimestamp);
 		}
 
-		$this->dailyStats = new Summary();
 		$this->currentDate = null;
 
 		$input = fopen($this->logFilename, 'r');
@@ -116,10 +110,11 @@ class BasicLogAnalyser {
 
 		$this->currentLineNumber = 0;
 
+		/** @noinspection SqlResolve PhpStorm doesn't recognize temporary databases, big surprise. */
 		$insertLogEntry = $this->database->prepare(
 			'INSERT OR IGNORE INTO "scratch"."log" (
-				slug_id, "action", installed_version, wp_version, php_version, 
-				wp_version_aggregate, php_version_aggregate, site_url
+				"slug_id", "action", "installed_version", "wp_version", "php_version", 
+				"wp_version_aggregate", "php_version_aggregate", "site_url"
 			)
 			 VALUES(
 			 	:slug_id, :action, :installed_version, :wp_version, :php_version, 
@@ -188,9 +183,6 @@ class BasicLogAnalyser {
 				':site_url' => $entry['site_url'],
 			));
 			$this->currentDayLineCount++;
-
-			//Track the total number of requests + uniques.
-			$this->dailyStats->recordEvent($date, $slug, 'total_hits', '', $entry['site_url']);
 
 			//Rudimentary progress bar.
 			$thisHour = intval(gmdate('H', $timestamp));
@@ -295,8 +287,10 @@ class BasicLogAnalyser {
 
 		foreach($this->enabledParameters as $metricName) {
 			$statement = $this->database->prepare(
-				"INSERT OR REPLACE INTO stats(datestamp, slug_id, metric_id, value, unique_sites) 
-				 SELECT :datestamp, slug_id, :metric_id, \"$metricName\", COUNT(*) AS unique_sites 
+				"INSERT OR REPLACE INTO stats(datestamp, slug_id, metric_id, value, requests, unique_sites) 
+				 SELECT 
+				 	:datestamp, slug_id, :metric_id, \"$metricName\", 
+				 	COUNT(*) as requests, COUNT(DISTINCT site_url) AS unique_sites 
 				 FROM scratch.log
 				 GROUP BY slug_id, \"$metricName\""
 			);
@@ -306,18 +300,19 @@ class BasicLogAnalyser {
 			));
 		}
 
-		foreach($this->dailyStats->getIterator() as $row) {
-			$this->insertStatement->execute([
-				':date'      => $row['date'],
-				':slug_id'   => $this->slugToId($row['slug']),
-				':metric_id' => $this->metricToId($row['metric']),
-				':value'     => $row['value'],
-				':requests'  => $row['requests'],
-				':unique_sites' => $row['unique_sites'],
-			]);
-
-		}
-		$this->dailyStats->clear();
+		//Track the total number of requests + uniques.
+		$storeTotalHits = $this->database->prepare(
+			"INSERT OR REPLACE INTO stats(datestamp, slug_id, metric_id, value, requests, unique_sites) 
+			 SELECT 
+			    :datestamp, slug_id, :metric_id, '',
+			    COUNT(*) as requests, COUNT(DISTINCT site_url) AS unique_sites 
+			 FROM scratch.log
+			 GROUP BY slug_id"
+		);
+		$storeTotalHits->execute(array(
+			':datestamp' => $this->currentDate,
+			':metric_id' => $this->metricToId('total_hits'),
+		));
 
 		//Clear the temporary table.
 		$this->database->exec('DELETE FROM scratch.log');
@@ -529,13 +524,6 @@ class BasicLogAnalyser {
 			)'
 		);
 
-		//For most statistics, we only care about unique sites, not total requests.
-		$this->database->exec(
-			'CREATE UNIQUE INDEX scratch.id_unique_requests ON log ( 
-				"slug_id" ASC,
-				"site_url" ASC
-			)'
-		);
 	}
 
 	private function populateLookUps() {
