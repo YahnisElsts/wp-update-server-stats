@@ -95,6 +95,10 @@ class ChartData {
 	}
 
 	public function renameEmptyValueSeries($newName) {
+		if (!isset($this->stats[''])) {
+			return $this;
+		}
+
 		$series = $this->stats[''];
 		$this->stats[$newName] = $series;
 		unset($this->stats['']);
