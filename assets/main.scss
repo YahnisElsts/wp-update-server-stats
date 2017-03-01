@@ -25,6 +25,10 @@ body {
 	margin-right: 10px;
 }
 
+#date-range {
+	cursor: pointer;
+}
+
 .positive-change {
 	color: green;
 	&:before {
@@ -34,7 +38,4 @@ body {
 
 .negative-change {
 	color: red;
-	&:before {
-		content: '-';
-	}
 }

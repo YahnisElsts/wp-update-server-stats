@@ -22,7 +22,7 @@ if (empty($availableSlugs)) {
 
 $report = new Report($db, $slug, $_GET);
 
-$similarCharts = [
+$charts = [
 	'activeInstalls' => $report->getChart('total_hits')->renameEmptyValueSeries('Unique sites'),
 	'activeVersions' => $report->getActiveVersionChart(),
 	'wordPressVersions' => $report->getWordPressVersionChart(),
@@ -31,7 +31,7 @@ $similarCharts = [
 ];
 
 $basicChartData = [];
-foreach($similarCharts as $key => $chart) {
+foreach($charts as $key => $chart) {
 	$basicChartData[$key] = [
 		'area' => $chart->getAreaChartData(),
 		'pie'  => $chart->getPieChartData(),
@@ -54,7 +54,16 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 	<!-- Bootstrap theme -->
 	<link href="vendor/twbs/bootstrap/dist/css/bootstrap-theme.css" rel="stylesheet">
 	<!-- Project-specific styles -->
-	<link href="css/main.css" rel="stylesheet">
+	<link href="assets/main.css" rel="stylesheet">
+
+	<!-- jQuery -->
+	<script type="text/javascript" src="vendor/components/jquery/jquery.min.js"></script>
+	<!-- Moment.js -->
+	<script type="text/javascript" src="vendor/moment/moment/min/moment.min.js"></script>
+
+	<!-- Bootstrap date range picker -->
+	<script type="text/javascript" src="assets/daterangepicker/daterangepicker.js"></script>
+	<link href="assets/daterangepicker/daterangepicker.css" rel="stylesheet">
 
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript">
@@ -114,6 +123,49 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 
 			drawAreaChart('request-chart', chartData.requests.area);
 		}
+
+		//Initialise the date range picker.
+		jQuery(function($) {
+			var startDate = moment('<?php echo $report->getDateRange()->startDate(); ?>'),
+				endDate = moment('<?php echo $report->getDateRange()->endDate(); ?>');
+
+			function setDateRangeDisplay(start, end) {
+				$('#date-range').find('span').text(
+					start.format('MMMM D, YYYY') + ' - ' + end.format('MMMM D, YYYY')
+				);
+
+				$('#from-date').val(start.format('YYYY-MM-DD'));
+				$('#to-date').val(end.format('YYYY-MM-DD'));
+			}
+
+			setDateRangeDisplay(startDate, endDate);
+
+			$('#date-range').daterangepicker(
+				{
+					opens: 'left',
+					locale: {
+						format: 'YYYY-MM-DD'
+					},
+					ranges: {
+						'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+						'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+						'This Month': [moment().startOf('month'), moment().endOf('month')],
+						'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+					},
+					alwaysShowCalendars: true,
+					startDate: startDate,
+					endDate: endDate
+				},
+				function(start, end) {
+					setDateRangeDisplay(start, end);
+					$('#query-parameters').submit();
+				}
+			);
+
+			$('#selected-slug').change(function () {
+				$('#query-parameters').submit();
+			});
+		});
 	</script>
 </head>
 <body>
@@ -131,7 +183,7 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 			</div>
 
 			<div id="navbar" class="navbar-collapse collapse">
-				<form action="" class="navbar-form">
+				<form class="navbar-form" id="query-parameters" action="" method="get">
 					<div class="form-group">
 						<label for="selected-slug">
 							Slug:
@@ -148,26 +200,20 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 							?>
 						</select>
 
-						<label for="datepicker">
-							Range:
-						</label>
-						<div class="input-daterange" id="datepicker" style="display: inline-block">
-							<label for="from_date" class="sr-only">From date</label>
-							<input class="form-control" name="from" id="from_date" value="<?php
-								echo htmlentities($report->getDateRange()->startDate());
-							?>" type="date">
-
-							<span class="form-control-static range-infix">to</span>
-
-							<label for="to_date" class="sr-only">To date</label>
-							<input class="form-control input-small" name="to" id="to_date" value="<?php
-								echo htmlentities($report->getDateRange()->endDate());
-							?>" type="text">
+						<!-- Date range picker -->
+						<div id="date-range" class="form-control">
+							<i class="glyphicon glyphicon-calendar fa fa-calendar"></i>&nbsp;
+							<span></span> <b class="caret"></b>
 						</div>
-					</div>
 
-					<button type="submit" class="btn btn-default">Apply</button>
+						<input class="form-control" name="from" id="from-date" value="<?php
+							echo htmlentities($report->getDateRange()->startDate());
+						?>" type="hidden">
+						<input class="form-control input-small" name="to" id="to-date" value="<?php
+							echo htmlentities($report->getDateRange()->endDate());
+						?>" type="hidden">
 
+					</div> <!-- /.form-group -->
 				</form>
 			</div><!--/.nav-collapse -->
 

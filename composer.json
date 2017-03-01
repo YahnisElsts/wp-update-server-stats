@@ -22,6 +22,7 @@
 		"ext-sqlite3": "*",
 		"j4mie/idiorm": "1.5.*",
 		"twbs/bootstrap": "^3.3",
-		"components/jquery": "^3.1"
+		"components/jquery": "^3.1",
+		"moment/moment": "^2.17"
 	}
 }
