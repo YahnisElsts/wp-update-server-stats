@@ -8,7 +8,7 @@ class BasicLogAnalyser {
 	 */
 	const INVALID_VER_REPLACEMENT = 'obfuscated';
 
-	private $logFilename;
+	private $logFiles;
 
 	/**
 	 * @var int Current log line. Note that this is relative to the first processed entry, not the start of the file.
@@ -53,8 +53,14 @@ class BasicLogAnalyser {
 	/** @var PDOStatement */
 	private $insertStatement;
 
-	public function __construct($filename, $database) {
-		$this->logFilename = $filename;
+	/**
+	 * Constructor.
+	 *
+	 * @param string[]|string $fileNames
+	 * @param PDO $database
+	 */
+	public function __construct($fileNames, $database) {
+		$this->logFiles = $this->sortByFirstTimestamp((array)$fileNames);
 		$this->database = $database;
 
 		$this->createTables();
@@ -63,6 +69,40 @@ class BasicLogAnalyser {
 			'INSERT OR REPLACE INTO stats(datestamp, slug_id, metric_id, value, requests, unique_sites)
 			 VALUES(:date, :slug_id, :metric_id, :value, :requests, :unique_sites)'
 		);
+	}
+
+	/**
+	 * Sort log files by the timestamp of the first entry (oldest to newest).
+	 *
+	 * @param string[] $fileNames
+	 * @return string[]
+	 */
+	private function sortByFirstTimestamp($fileNames) {
+		$timestamps = [];
+
+		foreach($fileNames as $fileName) {
+			//In case we can't parse the first few entries, the modification time is the fallback.
+			$timestamps[$fileName] = filemtime($fileName);
+
+			$sample = file_get_contents($fileName, null, null, 0, 5 * 1024);
+			if (empty($sample)) {
+				continue;
+			}
+			foreach(explode("\n", $sample) as $line) {
+				try {
+					$entry = $this->parseLogEntry($line);
+					if (!empty($entry['timestamp'])) {
+						$timestamps[$fileName] = $entry['timestamp'];
+						break;
+					}
+				} catch (LogParserException $ex) {
+					//Skip malformed line.
+				}
+			}
+		}
+
+		asort($timestamps);
+		return array_keys($timestamps);
 	}
 
 	/**
@@ -85,7 +125,7 @@ class BasicLogAnalyser {
 
 		$this->currentDate = null;
 
-		$input = fopen($this->logFilename, 'r');
+		$input = new MultiFileReader($this->logFiles);
 
 		if ( isset($fromTimestamp) ) {
 			$this->output(sprintf(
@@ -100,11 +140,11 @@ class BasicLogAnalyser {
 				return;
 			} else {
 				$this->output(sprintf(
-					'Found an entry with a timestamp >= %s at offset %d.',
+					'Found an entry with a timestamp >= %s at offset %.0f.',
 					gmdate('Y-m-d H:i:s O', $fromTimestamp),
 					$firstLineOffset
 				));
-				fseek($input, $firstLineOffset);
+				$input->fseek($firstLineOffset);
 			}
 		}
 
@@ -125,10 +165,10 @@ class BasicLogAnalyser {
 		$this->database->beginTransaction();
 		$lastHour = -1;
 
-		while (!feof($input)) {
+		while (!$input->feof()) {
 			$this->currentLineNumber++;
 
-			$line = fgets($input);
+			$line = $input->fgets();
 			//Skip empty lines.
 			if (empty($line)) {
 				continue;
@@ -384,16 +424,16 @@ class BasicLogAnalyser {
 	/**
 	 * Find the first log entry that has a timestamp greater or equal to a specific timestamp.
 	 *
-	 * @param resource $fileHandle Log file handle.
+	 * @param MultiFileReader $reader File reader object.
 	 * @param int $targetTimestamp Unix timestamp to look for.
 	 * @return int File offset of the found entry, or NULL if there are no entries with the required timestamp.
 	 */
-	private function findFirstEntryByTimestamp($fileHandle, $targetTimestamp) {
-		$originalPosition = ftell($fileHandle);
+	private function findFirstEntryByTimestamp($reader, $targetTimestamp) {
+		$originalPosition = $reader->ftell();
 
 		//Calculate the file size.
-		fseek($fileHandle, 0, SEEK_END);
-		$fileSize = ftell($fileHandle);
+		$reader->fseek(0, SEEK_END);
+		$fileSize = $reader->ftell();
 
 		//An empty file definitely doesn't contain the timestamp that we're looking for.
 		if ($fileSize == 0) {
@@ -402,8 +442,8 @@ class BasicLogAnalyser {
 
 		//Check the first line. Since we skip the first line after each seek, there's no way we
 		//would reach it otherwise.
-		fseek($fileHandle, 0);
-		$line = fgets($fileHandle);
+		$reader->fseek(0);
+		$line = $reader->fgets();
 		$entry = $this->parseLogEntry($line);
 		$timestamp = $entry['timestamp'];
 		if ( $timestamp >= $targetTimestamp ) {
@@ -416,15 +456,15 @@ class BasicLogAnalyser {
 
 		while($beginning <= $end) {
 			$middle = floor($beginning + (($end - $beginning) / 2));
-			fseek($fileHandle, $middle);
+			$reader->fseek($middle);
 
 			//Read and discard a line since we're probably in the middle of one.
-			fgets($fileHandle);
+			$reader->fgets();
 
 			//Find a line that we can parse.
 			$comparison = null;
-			while( !feof($fileHandle) && ($comparison === null) ) {
-				$line = fgets($fileHandle);
+			while( !$reader->feof() && ($comparison === null) ) {
+				$line = $reader->fgets();
 				$comparison = null;
 
 				if ( !empty($line) ) {
@@ -448,17 +488,17 @@ class BasicLogAnalyser {
 			}
 		}
 
-		fseek($fileHandle, $beginning);
-		fgets($fileHandle); //Discard a line
+		$reader->fseek($beginning);
+		$reader->fgets(); //Discard a line
 
-		$targetPosition = ftell($fileHandle);
+		$targetPosition = $reader->ftell();
 		if ( $targetPosition >= $fileSize ) {
 			//We reached the end of the file without ever finding the specified timestamp.
 			return null;
 		}
 
 		//Restore the original file position.
-		fseek($fileHandle, $originalPosition);
+		$reader->fseek($originalPosition);
 
 		return $targetPosition;
 	}

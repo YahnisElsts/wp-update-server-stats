@@ -12,7 +12,7 @@ class LogParserCli {
 
 		$db = new PDO("sqlite:" . $options['database']);
 		$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-		$analyser = new BasicLogAnalyser($options['log'], $db);
+		$analyser = new BasicLogAnalyser($options['files'], $db);
 
 		$fromLastDate = !empty($options['from-last-date']);
 		if ($fromLastDate && !isset($dateRange['from'])) {
@@ -43,6 +43,7 @@ class LogParserCli {
 			'',
 			array(
 				'log:',
+				'dir:',
 				'database:',
 				'from:',
 				'to:',
@@ -56,14 +57,28 @@ class LogParserCli {
 			return null;
 		}
 
-		if (empty($options['log'])) {
+		if (!empty($options['log'])) {
+			//Process a specific log file.
+			$log = $options['log'];
+			if (!file_exists($log)) {
+				echo "Error: Log file not found.\n";
+				return null;
+			}
+			$options['files'] = [$log];
+		} else if (!empty($options['dir'])) {
+			//Process all .log files in the specified directory.
+			if (!is_dir($options['dir'])) {
+				echo "Error: Directory not found.\n";
+				return null;
+			}
+			$files = glob(rtrim($options['dir'], '/\\') . '/*.log', GLOB_NOESCAPE);
+			if (empty($files)) {
+				echo "The specified directory contains no .log files. Exiting.\n";
+				return null;
+			}
+			$options['files'] = $files;
+		} else {
 			echo "You must specify a log file name. Example: --log \"/path/to/request.log\"\n";
-			return null;
-		}
-
-		$log = $options['log'];
-		if (!file_exists($log)) {
-			echo "Error: Log file not found.\n";
 			return null;
 		}
 
@@ -105,14 +120,20 @@ class LogParserCli {
 		echo <<<EOT
 Usage: php {$fileName} --log "/path/to/reqest.log" [args...]
 
-All options except "--log" are optional.
-  --log <file>        Parse this log file for request statistics. Required.
+Options:
+  --log <file>        Parse this log file for request statistics.
+  --dir <directory>   Parse all log files in this directory. 
   --database <file>   Override the default database file name.
   --from <YYYY-MM-DD> Start parsing from this date (UTC).
   --to   <YYYY-MM-DD> Parse up to this date (UTC).
   --from-last-date    Automatically restart analysis from the last processed date.
                       If the database is empty this flag has no effect.
   --help              Display this message.
+  You must specify either "--log" or "--dir". All other arguments are optional.
+  
+Examples:
+  php {$fileName} --log "/path/to/reqest.log" --from-last-date
+  php {$fileName} --dir "/path/to/wp-update-server/logs" --from-last-date
 
 EOT;
 	}
