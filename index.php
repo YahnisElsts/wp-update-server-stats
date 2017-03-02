@@ -228,7 +228,7 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 		</div>
 		<div class="row">
 			<div class="col-md-9">
-				<div id="active-install-history" style="width: 100%; height: 400px;"></div>
+				<div id="active-install-history" class="chart"></div>
 			</div>
 			<div class="col-md-3">
 				<table class="table" id="summary-sidebar">
