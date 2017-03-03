@@ -71,7 +71,27 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 		google.charts.setOnLoadCallback(drawAllCharts);
 
 		function drawAreaChart(id, data) {
-			data = google.visualization.arrayToDataTable(data);
+			//Reverse column order so that stacking happens top-to-bottom.
+			for(var i = 0; i < data.length; i++) {
+				data[i].reverse();
+				var realFirstColumn = data[i].pop();
+				data[i].unshift(realFirstColumn);
+			}
+
+			//Also reverse series colors to match.
+			var defaultColors = [
+				"#3366cc", "#dc3912", "#ff9900", "#109618", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e",
+				"#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262",
+				"#5574a6", "#3b3eac", "#b77322", "#16d620", "#b91383", "#f4359e", "#9c5935", "#a9c413", "#2a778d",
+				"#668d1c", "#bea413", "#0c5922", "#743411"
+			];
+
+			var seriesSettings = [];
+			var numOfSeries = data[0].length - 1;
+			for (var j = 0; j < numOfSeries; j++) {
+				seriesSettings.push({ color: defaultColors[j % defaultColors.length] });
+			}
+			seriesSettings.reverse();
 
 			var options = {
 				titlePosition: 'none',
@@ -84,27 +104,29 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 					height: '88%',
 					left: 60,
 					top: 10
-				}
+				},
+
+				series: seriesSettings
 			};
 
 			var chart = new google.visualization.AreaChart(document.getElementById(id));
-			chart.draw(data, options);
+			chart.draw(google.visualization.arrayToDataTable(data), options);
 		}
 
 		function drawPieChart(id, data) {
-			data = google.visualization.arrayToDataTable(data);
-
 			var pieOptions = {
+				legend: 'none',
 				chartArea: {
 					width: '100%',
 					height: '100%',
-					left: 10,
-					top: 10
+					left: 8,
+					right: 8,
+					top: 0
 				}
 			};
 
 			var pieChart = new google.visualization.PieChart(document.getElementById(id));
-			pieChart.draw(data, pieOptions);
+			pieChart.draw(google.visualization.arrayToDataTable(data), pieOptions);
 		}
 
 		function drawAllCharts() {
@@ -221,7 +243,7 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 		</div>
 	</nav>
 
-	<div class="container-fluid" role="main">
+	<div class="container" role="main">
 
 		<div class="row">
 			<div class="col-md-12"><h2>Active installs</h2></div>
@@ -231,11 +253,11 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 				<div id="active-install-history" class="chart"></div>
 			</div>
 			<div class="col-md-3">
-				<table class="table" id="summary-sidebar">
+				<table class="table table-hover" id="summary-sidebar">
 					<tr>
 						<th>
 							Active installs
-							<small>(7 day average)</small>
+							<br><small>(7 day average)</small>
 						</th>
 						<td><span id="active-installs"><?php
 								echo number_format($report->getActiveInstalls(7), 0, '.', ',');
@@ -273,7 +295,10 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 					<?php endif; ?>
 
 					<tr class="stats-sub-field">
-						<th>Per site <small>(daily average)</small></th>
+						<th>
+							Per site
+							<br><small>(daily average)</small>
+						</th>
 						<td id="api-requests-per-site-per-day">
 							<?php echo number_format($report->getRequestsPerSite(), 2, '.', ','); ?>
 						</td>

@@ -13,7 +13,8 @@ class ChartData {
 		$lineValueColumn = 'unique_sites',
 		$sortCallback = null,
 		$otherGroupFraction = 0.20,
-		$groupDayThreshold = 0.09
+		$groupDayThreshold = 0.09,
+		$maxUngroupedSeries = 19
 	) {
 		$this->dateRange = $dateRange;
 
@@ -60,8 +61,9 @@ class ChartData {
 				continue;
 			}
 
-			if (($total > 0) && (($groupedTotal + $keyTotal)/$total) <= $otherGroupFraction) {
-				//printf('Grouping key "%s" that has %d total events<br>', $key, $keyTotal);
+			$isFractionOk = (($groupedTotal + $keyTotal)/$total) <= $otherGroupFraction;
+			$tooManyUngroupedSeries = count($data) > $maxUngroupedSeries;
+			if (($total > 0) && ($isFractionOk || $tooManyUngroupedSeries)) {
 				$groupedTotal += $keyTotal;
 				foreach($data[$key] as $timestamp => $cnt) {
 					if ( !isset($groupedData[$timestamp]) ) {
@@ -76,13 +78,13 @@ class ChartData {
 			}
 		}
 
-		if ($groupedTotal > 0) {
-			$data['Other'] = $groupedData;
-		}
-
 		//Sort by version number.
 		if (isset($sortCallback)) {
 			uksort($data, $sortCallback);
+		}
+
+		if ($groupedTotal > 0) {
+			$data['Other'] = $groupedData;
 		}
 
 		//Special case: No data for this metric.
@@ -91,7 +93,6 @@ class ChartData {
 		}
 
 		$this->stats = $data;
-		//var_dump($data, $totalsByDate);
 	}
 
 	public function renameEmptyValueSeries($newName) {
@@ -146,7 +147,6 @@ class ChartData {
 			$rows[] = [strval($key), $pointValue];
 			$isAllZero = $isAllZero && ($pointValue === 0);
 		}
-		$rows = array_reverse($rows);
 
 		array_unshift($rows, ['Key', $label]);
 

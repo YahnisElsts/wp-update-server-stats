@@ -4,7 +4,7 @@ body {
 
 .chart {
 	width: 100%;
-	height: 400px;
+	height: 320px;
 }
 
 .stats-sub-field {
@@ -16,6 +16,10 @@ body {
 #summary-sidebar {
 	td {
 		text-align: right;
+	}
+
+	th > small {
+		color: #888;
 	}
 }
 

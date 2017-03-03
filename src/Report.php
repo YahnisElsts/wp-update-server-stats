@@ -43,27 +43,31 @@ class Report {
 		return $cachedResults[$key];
 	}
 
+	public function compareVersionsDesc($a, $b) {
+		return -version_compare($a, $b);
+	}
+
 	public function getActiveVersionChart() {
 		return $this->cache(function() {
-			return $this->getChart('installed_version', 'version_compare');
+			return $this->getChart('installed_version', array($this, 'compareVersionsDesc'));
 		}, __METHOD__);
 	}
 
 	public function getWordPressVersionChart() {
 		return $this->cache(function() {
-			return $this->getChart('wp_version_aggregate', 'version_compare');
+			return $this->getChart('wp_version_aggregate', array($this, 'compareVersionsDesc'));
 		}, __METHOD__);
 	}
 
 	public function getPhpVersionChart() {
 		return $this->cache(function() {
-			return $this->getChart('php_version_aggregate', 'version_compare');
+			return $this->getChart('php_version_aggregate', array($this, 'compareVersionsDesc'));
 		}, __METHOD__);
 	}
 
 	public function getRequestChart() {
 		return $this->cache(function() {
-			return $this->getChart('action', 'strcasecmp', 'requests', 0);
+			return $this->getChart('action', function($a, $b) { return -strcasecmp($a, $b); }, 'requests', 0);
 		}, __METHOD__);
 	}
 
