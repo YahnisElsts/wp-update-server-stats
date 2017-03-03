@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "54cb72125fa53c7d603020f3ce2c5810",
+    "content-hash": "b98ce9ec86c0c5562b82171659ee0298",
     "packages": [
         {
             "name": "components/jquery",
@@ -45,67 +45,6 @@
             "description": "jQuery JavaScript Library",
             "homepage": "http://jquery.com",
             "time": "2016-09-23T06:06:29+00:00"
-        },
-        {
-            "name": "j4mie/idiorm",
-            "version": "v1.5.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/j4mie/idiorm.git",
-                "reference": "00b5fcd6e615a8572577eae401f80e41525efd5e"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/j4mie/idiorm/zipball/00b5fcd6e615a8572577eae401f80e41525efd5e",
-                "reference": "00b5fcd6e615a8572577eae401f80e41525efd5e",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=5.2.0"
-            },
-            "require-dev": {
-                "phpunit/phpunit": "^5.6"
-            },
-            "type": "library",
-            "autoload": {
-                "classmap": [
-                    "idiorm.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "BSD-2-Clause",
-                "BSD-3-Clause",
-                "BSD-4-Clause"
-            ],
-            "authors": [
-                {
-                    "name": "Simon Holywell",
-                    "email": "treffynnon@php.net",
-                    "homepage": "http://simonholywell.com",
-                    "role": "Maintainer"
-                },
-                {
-                    "name": "Jamie Matthews",
-                    "email": "jamie.matthews@gmail.com",
-                    "homepage": "http://j4mie.org",
-                    "role": "Developer"
-                },
-                {
-                    "name": "Durham Hale",
-                    "email": "me@durhamhale.com",
-                    "homepage": "http://durhamhale.com",
-                    "role": "Maintainer"
-                }
-            ],
-            "description": "A lightweight nearly-zero-configuration object-relational mapper and fluent query builder for PHP5",
-            "homepage": "http://j4mie.github.com/idiormandparis",
-            "keywords": [
-                "idiorm",
-                "orm",
-                "query builder"
-            ],
-            "time": "2016-12-14T06:28:26+00:00"
         },
         {
             "name": "kriswallsmith/assetic",
