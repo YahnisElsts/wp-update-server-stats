@@ -213,6 +213,7 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 						<select name="slug" id="selected-slug" class="form-control">
 							<?php
 							foreach($availableSlugs as $option) {
+								/** @noinspection HtmlUnknownAttribute */
 								printf(
 									'<option value="%1$s" %2$s>%1$s</option>',
 									htmlentities($option),
