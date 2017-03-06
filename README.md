@@ -28,7 +28,7 @@ Screenshots
 -----------
 
 ![Active installs](screenshots/active-installs.png?raw=true)
-![Active versions](screenshots/active-version.png?raw=true)
-![WordPress versions](screenshots/wp-versions.png?raw=true)
+![Active versions](screenshots/active-versions.png?raw=true)
+![WordPress versions](screenshots/wordpress-versions.png?raw=true)
 ![API requests](screenshots/api-requests.png?raw=true)
 ![WordPress vs Plugin version](screenshots/wp-vs-package.png?raw=true)
