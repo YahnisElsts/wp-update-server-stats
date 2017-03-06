@@ -43,3 +43,19 @@ body {
 .negative-change {
 	color: red;
 }
+
+/*
+ * Version combinations
+ */
+.combo-base-version-number {
+	position: relative;
+}
+
+.cell-background-bar {
+	height: 100%;
+
+	position: absolute;
+	left: 0;
+	top: 0;
+	z-index: -1;
+}

@@ -186,7 +186,7 @@ class BasicLogAnalyser {
 
 			//The log file is sorted in chronological order, so if we reach an entry newer than the "to" timestamp,
 			//we can safely skip *all* following entries.
-			if (isset($toTimestamp) && $timestamp > $toTimestamp) {
+			if (isset($toTimestamp) && $timestamp >= $toTimestamp) {
 				break;
 			}
 
@@ -353,6 +353,81 @@ class BasicLogAnalyser {
 			':datestamp' => $this->currentDate,
 			':metric_id' => $this->metricToId('total_hits'),
 		));
+
+		//Track the different combinations of platform version vs plugin version.
+		//This is useful for seeing if people running old WP/PHP versions update plugins. Storing every
+		//combination would take a lot of space, so we just record some percentiles.
+		$combinations = [
+			['wp_version_aggregate', 'installed_version'],
+			['php_version_aggregate', 'installed_version'],
+		];
+		$insertCombination = $this->database->prepare(
+			"INSERT OR REPLACE INTO combinations(
+				datestamp, slug_id, metric1_id, metric1_value, metric2_id, 
+				percentile10th, percentile50th, percentile90th
+			 )
+			 VALUES(
+				:datestamp, :slug_id, :metric1_id, :metric1_value, :metric2_id, 
+				:percentile10th, :percentile50th, :percentile90th
+			 )"
+		);
+
+		foreach($combinations as list($metric1, $metric2)) {
+			$pairData = $this->database->prepare(
+				"SELECT slug_id, $metric1, $metric2, COUNT(DISTINCT site_url) as unique_sites
+			 	 FROM scratch.log
+			 	 WHERE 
+			 	 	$metric1 IS NOT NULL 
+			 	 	AND $metric2 IS NOT NULL
+			 	 	AND $metric1 <> ''
+			 	 	AND $metric1 <> '-'
+			 	 	AND $metric2 <> ''
+			 	 	AND $metric2 <> '-'
+			 	 GROUP BY slug_id, $metric1, $metric2"
+			);
+			$pairData->execute();
+
+			$table = new CompositeIndex(4);
+			foreach($pairData as $row) {
+				$table->add($row['slug_id'], $row[$metric1], $row[$metric2], $row['unique_sites']);
+			}
+
+			foreach($table->rows(2) as list($slugId, $metric1Value, $metric2Values)) {
+				uksort($metric2Values, 'version_compare');
+
+				$total = array_sum($metric2Values);
+				$thresholds = [$total * 0.1, $total * 0.5, $total * 0.9];
+				$thresholdIndex = 0;
+
+				$percentiles = [];
+				$sitesBelowThreshold = 0;
+
+				foreach($metric2Values as $version => $sites) {
+					$sitesBelowThreshold += $sites;
+					while (
+						($thresholdIndex < count($thresholds))
+						&& ($sitesBelowThreshold >= $thresholds[$thresholdIndex])
+					) {
+						$percentiles[$thresholdIndex] = $version;
+						$thresholdIndex++;
+					}
+					if ($thresholdIndex >= count($thresholds)) {
+						break;
+					}
+				}
+
+				$insertCombination->execute([
+					':datestamp' => $this->currentDate,
+					':slug_id' => $slugId,
+					':metric1_id' => $this->metricToId($metric1),
+					':metric1_value' => $metric1Value,
+					':metric2_id' => $this->metricToId($metric2),
+					':percentile10th' => $percentiles[0],
+					':percentile50th' => $percentiles[1],
+					':percentile90th' => $percentiles[2]
+				]);
+			}
+		}
 
 		//Clear the temporary table.
 		$this->database->exec('DELETE FROM scratch.log');
@@ -547,6 +622,29 @@ class BasicLogAnalyser {
 		);
 
 		$this->database->exec('CREATE UNIQUE INDEX IF NOT EXISTS id_context on stats (datestamp, slug_id, metric_id, value);');
+
+		$this->database->exec(
+			'CREATE TABLE IF NOT EXISTS combinations (
+				datestamp date not null,
+				slug_id integer not null,
+				metric1_id integer not null,
+				metric1_value varchar(30) null,
+				metric2_id integer not null,
+				percentile10th varchar(30) null,
+				percentile50th varchar(30) null,
+				percentile90th varchar(30) null
+			)'
+		);
+
+		$this->database->exec(
+			'CREATE UNIQUE INDEX IF NOT EXISTS idx_combinations ON combinations(
+				datestamp ASC,
+				slug_id ASC,
+				metric1_id ASC,
+				metric1_value ASC,
+				metric2_id ASC
+			)'
+		);
 
 		//A temporary database for one day of log data.
 		$this->database->exec("ATTACH DATABASE '' AS scratch");

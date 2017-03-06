@@ -6,9 +6,11 @@ class Report {
 	private $metricQuery;
 	private $slug;
 	private $dateRange;
+	private $database;
 
 	public function __construct(PDO $database, $slug, $parameters = null) {
 		$this->slug = $slug;
+		$this->database = $database;
 
 		if (empty($parameters)) {
 			$parameters = $_GET;
@@ -55,7 +57,7 @@ class Report {
 
 	public function getWordPressVersionChart() {
 		return $this->cache(function() {
-			return $this->getChart('wp_version_aggregate', array($this, 'compareVersionsDesc'));
+			return $this->getChart('wp_version_aggregate', array($this, 'compareVersionsDesc'), 'unique_sites', 0.09);
 		}, __METHOD__);
 	}
 
@@ -148,5 +150,43 @@ class Report {
 
 	public function getSlug() {
 		return $this->slug;
+	}
+
+	public function getVersionCombinations($metric1, $metric2, $limit = 10) {
+		$query = $this->database->prepare(
+			'SELECT metric1_value, percentile10th, percentile50th, percentile90th, stats.unique_sites unique_sites
+			 FROM combinations
+			 	JOIN slugs ON slugs.slug_id = combinations.slug_id
+			 	JOIN metrics AS m1 ON m1.metric_id = metric1_id 
+			 	JOIN metrics AS m2 ON m2.metric_id = metric2_id 
+			 	LEFT JOIN stats ON (
+			 		stats.slug_id = combinations.slug_id 
+			 		AND stats.datestamp = combinations.datestamp
+			 		AND stats.metric_id = combinations.metric1_id
+			 		AND stats.value = combinations.metric1_value
+			 	)
+			 WHERE 
+			 	combinations.datestamp = :datestamp 
+			 	AND slugs.slug = :slug
+			 	AND m1.metric = :metric1
+			 	AND m2.metric = :metric2
+			 ORDER BY stats.unique_sites DESC
+			 LIMIT :limit'
+		);
+
+		$query->execute([
+			':slug' => $this->slug,
+			':datestamp' => $this->dateRange->endDate(),
+			':metric1' => $metric1,
+			':metric2' => $metric2,
+			':limit' => $limit,
+		]);
+
+		$results = $query->fetchAll(PDO::FETCH_ASSOC);
+		usort($results, function ($a, $b) use ($metric1) {
+			return -version_compare($a['metric1_value'], $b['metric1_value']);
+		});
+
+		return $results;
 	}
 }

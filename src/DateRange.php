@@ -44,12 +44,12 @@ class DateRange {
 		return $days;
 	}
 
-	public function startDate() {
-		return gmdate('Y-m-d', $this->startTimestamp);
+	public function startDate($format = 'Y-m-d') {
+		return gmdate($format, $this->startTimestamp);
 	}
 
-	public function endDate() {
-		return gmdate('Y-m-d', $this->endTimestamp);
+	public function endDate($format = 'Y-m-d') {
+		return gmdate($format, $this->endTimestamp);
 	}
 
 	public function getDuration() {

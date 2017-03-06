@@ -361,6 +361,85 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 				<!-- Nothing here for now. -->
 			</div>
 		</div>
+
+		<div class="row">
+		<?php
+		$combos = [
+			'WordPress vs Package version' => [
+				'WordPress' => 'wp_version_aggregate',
+				'Package version' => 'installed_version',
+			],
+			'PHP vs Package version' => [
+				'PHP' => 'php_version_aggregate',
+				'Package version' => 'installed_version',
+			],
+		];
+
+		foreach($combos as $title => $metricNames):
+			$rows = $report->getVersionCombinations(...array_values($metricNames));
+			$totalSites = max($report->getActiveInstalls(1), 1);
+		?>
+
+			<div class="col-md-6">
+				<h2>
+					<?php echo $title; ?>
+					<small>(<?php
+						echo htmlentities($report->getDateRange()->endDate('M j, Y'));
+						?>)</small>
+				</h2>
+
+				<?php if (!empty($rows)): ?>
+				<table class="table">
+					<thead>
+						<tr>
+							<th><?php echo key($metricNames); ?></th>
+							<th>10th percentile</th>
+							<th><abbr title="Median">50th percentile</abbr></th>
+							<th>90th percentile</th>
+						</tr>
+					</thead>
+					<tbody>
+					<?php
+					$maxSites = max(array_map(function($row) { return $row['unique_sites']; }, $rows));
+
+					foreach($rows as $row):
+						//Display a percentage bar behind the base version number. Note that it's relative
+						//to the most common version, not the total number of installs. This way the bars
+						//are longer and it's easier to visually compare the popularity of different versions.
+						$barWidth = sprintf('%.2f', max(0.01, min($row['unique_sites'] / $maxSites, 1)) * 100) . '%';
+						//Include a mouse-over tooltip that shows the actual values.
+						$baseMetricTooltip = sprintf(
+							'%.2f%% of active installs (%s sites)',
+							$row['unique_sites'] / $totalSites * 100,
+							number_format($row['unique_sites'], 0)
+						);
+					?>
+						<tr>
+							<td class="combo-base-version-number"
+							    title="<?php echo htmlentities($baseMetricTooltip); ?>">
+								<div
+									class="bg-success cell-background-bar"
+									style="width: <?php echo htmlentities($barWidth); ?>">
+								</div>
+								<?php echo htmlentities($row['metric1_value']); ?>
+							</td>
+							<td><?php echo htmlentities($row['percentile10th']); ?></td>
+							<td><?php echo htmlentities($row['percentile50th']); ?></td>
+							<td><?php echo htmlentities($row['percentile90th']); ?></td>
+						</tr>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+				<?php else: ?>
+					<p>No data available.</p>
+				<?php endif; ?>
+			</div>
+
+		<?php
+		endforeach;
+		?>
+		</div>
+
 	</div>
 
 	<!-- jQuery (necessary for Bootstrap's JavaScript plugins). -->
