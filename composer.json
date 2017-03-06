@@ -18,7 +18,7 @@
 	},
 
 	"require": {
-		"php": ">=5.5",
+		"php": ">=5.6",
 		"ext-sqlite3": "*",
 		"twbs/bootstrap": "^3.3",
 		"components/jquery": "^3.1",
