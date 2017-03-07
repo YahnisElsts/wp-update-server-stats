@@ -6,6 +6,12 @@ require 'vendor/autoload.php';
 $db = new PDO("sqlite:" . __DIR__ . '/db/stats.db3');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+$tableExists = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='slugs'");
+if ($tableExists->fetch() === false) {
+	echo "<h1>Error: Database hasn't been initialised. See readme.md for usage instructions.</h1>";
+	exit;
+}
+
 $availableSlugs = $db->query('SELECT slug FROM slugs ORDER BY slug ASC', PDO::FETCH_COLUMN, 0)->fetchAll();
 natcasesort($availableSlugs);
 
