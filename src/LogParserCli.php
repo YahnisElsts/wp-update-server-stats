@@ -82,7 +82,7 @@ class LogParserCli {
 			return null;
 		}
 
-		$dbFilename = realpath(__DIR__ . '/../db/stats.db3');
+		$dbFilename = realpath(__DIR__ . '/../db') . '/stats.db3';
 		if (!empty($options['database'])) {
 			$dbFilename = $options['database'];
 		}
