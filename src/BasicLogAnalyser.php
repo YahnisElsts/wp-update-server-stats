@@ -647,7 +647,7 @@ class BasicLogAnalyser {
 		);
 
 		//A temporary database for one day of log data.
-		$this->database->exec("ATTACH DATABASE '' AS scratch");
+		$this->database->exec("ATTACH DATABASE ':memory:' AS scratch");
 
 		$this->database->exec(
 			'CREATE TABLE scratch.log (
