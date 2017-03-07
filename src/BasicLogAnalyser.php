@@ -584,7 +584,7 @@ class BasicLogAnalyser {
 	private function createTables() {
 		$this->database->exec(
 			'CREATE TABLE IF NOT EXISTS metrics (
-				metric_id int not null primary key autoincrement,
+				metric_id integer not null primary key autoincrement,
 				metric varchar(50) unique not null
 			)'
 		);
@@ -604,7 +604,7 @@ class BasicLogAnalyser {
 
 		$this->database->exec(
 			'CREATE TABLE IF NOT EXISTS slugs (
-			   slug_id int not null primary key autoincrement,
+			   slug_id integer not null primary key autoincrement,
 			   slug varchar(250) unique not null,
 			   last_seen_on datetime
 			);'
@@ -613,11 +613,11 @@ class BasicLogAnalyser {
 		$this->database->exec(
 			'CREATE TABLE IF NOT EXISTS stats (
 			   datestamp date not null,
-			   slug_id unsigned int not null,
-			   metric_id unsigned int not null,
+			   slug_id unsigned integer not null,
+			   metric_id unsigned integer not null,
 			   value text,
-			   requests unsigned int not null default 0,
-			   unique_sites unsigned int not null default 0
+			   requests unsigned integer not null default 0,
+			   unique_sites unsigned integer not null default 0
 			);'
 		);
 
@@ -651,14 +651,14 @@ class BasicLogAnalyser {
 
 		$this->database->exec(
 			'CREATE TABLE scratch.log (
-				"slug_id" INTEGER  NOT NULL,
-				"action" VARCHAR(30) NULL,
-				"installed_version" VARCHAR(30) NULL,
-				"wp_version" VARCHAR(20) NULL,
-				"php_version" varCHAR(20) NULL,
-				"wp_version_aggregate" VARCHAR(15) NULL,
-				"php_version_aggregate" VARCHAR(15) NULL,
-				"site_url" VARCHAR(100) NULL
+				"slug_id" integer not null,
+				"action" varchar(30) null,
+				"installed_version" varchar(30) null,
+				"wp_version" varchar(20) null,
+				"php_version" varchar(20) null,
+				"wp_version_aggregate" varchar(15) null,
+				"php_version_aggregate" varchar(15) null,
+				"site_url" varchar(100) null
 			)'
 		);
 
