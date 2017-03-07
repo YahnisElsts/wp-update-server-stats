@@ -16,9 +16,9 @@ class Report {
 			$parameters = $_GET;
 		}
 
-		$from = isset($parameters['from']) ? strval($parameters['from']) : null;
-		$to = isset($parameters['to']) ? strval($parameters['to']) : null;
-		$dateRange = new DateRange($from . ' UTC', $to . ' UTC');
+		$from = isset($parameters['from']) ? (strval($parameters['from']) . ' UTC') : null;
+		$to = isset($parameters['to']) ? (strval($parameters['to']) . ' UTC') : null;
+		$dateRange = new DateRange($from, $to);
 		$this->dateRange = $dateRange;
 
 		$this->metricQuery = $database->prepare(
