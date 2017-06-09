@@ -262,6 +262,12 @@ class BasicLogAnalyser {
 				}
 			}
 
+			//In theory, every request must include a slug. In practice, I've seen log entries where the slug
+			//was missing. It was probably due to someone manually fiddling with download links.
+			if (!isset($result['slug'])) {
+				$result['slug'] = '-';
+			}
+
 			//PHP version and locale were added much later than other parameters, so they
 			//don't have their own log columns. Extract them from the query string.
 			$result['php_version'] = null;
