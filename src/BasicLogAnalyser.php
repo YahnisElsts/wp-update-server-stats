@@ -8,6 +8,8 @@ class BasicLogAnalyser {
 	 */
 	const INVALID_VER_REPLACEMENT = 'obfuscated';
 
+	const MAX_CONSECUTIVE_BAD_LINES = 30;
+
 	private $logFiles;
 
 	/**
@@ -114,8 +116,9 @@ class BasicLogAnalyser {
 	 *
 	 * @param string|int $fromTimestamp
 	 * @param string|int $toTimestamp
+	 * @param bool $ignoreConsecutiveErrors
 	 */
-	public function parse($fromTimestamp = null, $toTimestamp = null) {
+	public function parse($fromTimestamp = null, $toTimestamp = null, $ignoreConsecutiveErrors = false) {
 		if (isset($fromTimestamp) && !is_int($fromTimestamp)) {
 			$fromTimestamp = strtotime($fromTimestamp);
 		}
@@ -164,6 +167,7 @@ class BasicLogAnalyser {
 
 		$this->database->beginTransaction();
 		$lastHour = -1;
+		$consecutiveMalformedLines = 0;
 
 		while (!$input->feof()) {
 			$this->currentLineNumber++;
@@ -174,7 +178,21 @@ class BasicLogAnalyser {
 				continue;
 			}
 
-			$entry = $this->parseLogEntry($line);
+			try {
+				$entry = $this->parseLogEntry($line);
+				$consecutiveMalformedLines = 0;
+			} catch (LogParserException $ex) {
+				$this->output($ex->getMessage());
+				$consecutiveMalformedLines++;
+
+				if (!$ignoreConsecutiveErrors && ($consecutiveMalformedLines > self::MAX_CONSECUTIVE_BAD_LINES)) {
+					$this->output('Error: Too many consecutive bad lines. Is this really a valid log file?');
+					$this->output('Parsing was stopped. Use --ignore-bad-lines to disable this safeguard.');
+					break;
+				}
+				continue;
+			}
+
 			$timestamp = $entry['timestamp'];
 			$date = gmdate('Y-m-d', $timestamp);
 			$slug = $entry['slug'];

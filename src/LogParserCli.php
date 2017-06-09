@@ -24,7 +24,7 @@ class LogParserCli {
 			}
 		}
 
-		$analyser->parse($options['dateRange']['from'], $options['dateRange']['to']);
+		$analyser->parse($options['dateRange']['from'], $options['dateRange']['to'], $options['ignore-bad-lines']);
 
 		printf(
 			"Peak memory usage: %.2f MiB\n",
@@ -48,6 +48,7 @@ class LogParserCli {
 				'from:',
 				'to:',
 				'from-last-date',
+				'ignore-bad-lines',
 				'help'
 			)
 		);
@@ -109,6 +110,8 @@ class LogParserCli {
 			echo "Ignoring --from-last-date because --from is specified.\n";
 		}
 
+		$options['ignore-bad-lines'] = isset($options['ignore-bad-lines']);
+
 		return $options;
 	}
 
@@ -128,6 +131,7 @@ Options:
   --to   <YYYY-MM-DD> Parse up to this date (UTC).
   --from-last-date    Automatically restart analysis from the last processed date.
                       If the database is empty this flag has no effect.
+  --ignore-bad-lines  Continue parsing even if there are lots of consecutive malformed lines.                    
   --help              Display this message.
   You must specify either "--log" or "--dir". All other arguments are optional.
   
