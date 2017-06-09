@@ -138,7 +138,7 @@ class ChartData {
 	}
 
 	public function getPieChartData($label = 'Value', $dayIndex = -1) {
-		$day = reset(array_keys(array_slice($this->totalsByDate, $dayIndex, 1)));
+		$day = (array_keys(array_slice($this->totalsByDate, $dayIndex, 1)))[0];
 
 		$rows = [];
 		$isAllZero = true;
