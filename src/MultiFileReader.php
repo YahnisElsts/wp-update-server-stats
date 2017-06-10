@@ -42,7 +42,7 @@ class MultiFileReader {
 			$object = new \SplFileObject($fileName);
 
 			//Skip empty files.
-			if ($object->getSize() < 1) {
+			if ($object->getSize() === 0) {
 				continue;
 			}
 
