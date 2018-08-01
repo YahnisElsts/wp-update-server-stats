@@ -20,6 +20,8 @@
 	"require": {
 		"php": ">=5.6",
 		"ext-sqlite3": "*",
+		"ext-PDO": "*",
+		"ext-json": "*",
 		"twbs/bootstrap": "^3.3",
 		"components/jquery": "^3.1",
 		"moment/moment": "^2.17"
