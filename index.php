@@ -1,7 +1,7 @@
 <?php
 namespace Wpup;
 use PDO;
-require 'vendor/autoload.php';
+require __DIR__ . '/vendor/autoload.php';
 
 $db = new PDO("sqlite:" . __DIR__ . '/db/stats.db3');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
