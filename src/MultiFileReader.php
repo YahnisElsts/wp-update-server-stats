@@ -72,6 +72,7 @@ class MultiFileReader {
 			//Move on to the next file.
 			$this->fileIndex++;
 			$this->currentFile = $this->files[$this->fileIndex];
+			$this->currentFile->fseek(0, SEEK_SET);
 		}
 
 		return $this->currentFile->fgets();
