@@ -21,8 +21,8 @@ class BasicLogAnalyser {
 	 * @var string[] We'll generate daily stats for these API request parameters.
 	 */
 	private $enabledParameters = array(
-		'installed_version', 'wp_version', 'php_version', 'action',
-		'wp_version_aggregate', 'php_version_aggregate',
+		'installed_version', 'cms', 'cms_version', 'php_version', 'action',
+		'cms_version_aggregate', 'php_version_aggregate',
 	);
 
 	/**
@@ -156,12 +156,12 @@ class BasicLogAnalyser {
 		/** @noinspection SqlResolve PhpStorm doesn't recognize temporary databases, big surprise. */
 		$insertLogEntry = $this->database->prepare(
 			'INSERT OR IGNORE INTO "scratch"."log" (
-				"slug_id", "action", "installed_version", "wp_version", "php_version", 
-				"wp_version_aggregate", "php_version_aggregate", "site_url"
+				"slug_id", "action", "installed_version", "cms", "cms_version", "php_version", 
+				"cms_version_aggregate", "php_version_aggregate", "site_url"
 			)
 			 VALUES(
-			 	:slug_id, :action, :installed_version, :wp_version, :php_version, 
-			 	:wp_version_aggregate, :php_version_aggregate, :site_url
+			 	:slug_id, :action, :installed_version, :cms, :cms_version, :php_version, 
+			 	:cms_version_aggregate, :php_version_aggregate, :site_url
 			 )'
 		);
 
@@ -173,6 +173,7 @@ class BasicLogAnalyser {
 			$this->currentLineNumber++;
 
 			$line = $input->fgets();
+
 			//Skip empty lines.
 			if (empty($line)) {
 				continue;
@@ -234,8 +235,8 @@ class BasicLogAnalyser {
 				':slug_id' => $this->slugToId($slug),
 				':action' => $entry['action'],
 				':installed_version' => $entry['installed_version'],
-				':wp_version' => $entry['wp_version'],
-				':wp_version_aggregate' => $entry['wp_version_aggregate'],
+				':cms_version' => $entry['cms_version'],
+				':cms_version_aggregate' => $entry['cms_version_aggregate'],
 				':php_version' => $entry['php_version'],
 				':php_version_aggregate' => $entry['php_version_aggregate'],
 				':site_url' => $entry['site_url'],
@@ -264,16 +265,22 @@ class BasicLogAnalyser {
 	 */
 	private function parseLogEntry($line) {
 		$columns = array(
-			'http_method', 'action', 'slug', 'installed_version', 'wp_version',
+			'http_method', 'action', 'slug', 'installed_version', 'cms_version',
 			'site_url', 'query_string',
 		);
+
 		$result = array_fill_keys($columns, null);
+
 
 		if ( preg_match('/^\[(?P<timestamp>[^\]]+)\]\s(?P<ip>\S+)\s+(?P<remainder>.+)$/', $line, $matches) ) {
 			$result['timestamp'] = strtotime($matches['timestamp']);
 			$result['ip'] = $matches['ip'];
 
-			$values = explode("\t", $matches['remainder']);
+
+			$values = explode("\t", $matches['remainder']);		
+			
+			
+			
 			foreach($values as $index => $value) {
 				if ( isset($columns[$index]) ) {
 					$result[$columns[$index]] = $value;
@@ -290,8 +297,46 @@ class BasicLogAnalyser {
 			//don't have their own log columns. Extract them from the query string.
 			$result['php_version'] = null;
 			$result['locale'] = null;
+
+
 			if (!empty($result['query_string'])) {
 				parse_str($result['query_string'], $parameters);
+				
+				if (isset($parameters['cms'])) {
+					$parameters['cms'] = str_replace('=', '', $parameters['cms']);
+					
+					
+					if (strpos($parameters['cms'], 'ClassicPress') !== false) {
+						$result['cms'] = 'CP';
+
+						/**
+						 *
+						 * If ClassicPress is detected, will override the cms version with the param "ver" of the site_url
+						 *
+						 */
+						$parts = parse_url($result['site_url']);						
+						if(isset($parts['query'])){
+							$parts = explode('&', $parts['query']);
+
+							$param = array();
+							foreach ($parts as $key => $value) {
+								$compatible = explode('=', $value)[0];
+								$classic_press_version = explode('=', $value)[1];
+								$param[$compatible] = $classic_press_version;
+							}
+
+							if($param['wp_compatible']){							
+								$result['cms_version'] = $param['ver'];
+							}							
+						}
+
+					}else{
+						$result['cms'] = 'WP';						
+					}
+					
+				}else{
+					$result['cms'] = 'WP';					
+				}
 				if (isset($parameters['php'])) {
 					$result['php_version'] = strval($parameters['php']);
 				}
@@ -300,21 +345,37 @@ class BasicLogAnalyser {
 				}
 			}
 
+			/**
+			 *
+			 * If there is not CMS detected, we assume WordPress
+			 *
+			 */			
+			if(!isset($result['cms']))
+				$result['cms'] = 'WP';
+
+
 			//Some sites obfuscate their WordPress version number or replace it with something weird. We don't
 			//want to pollute the stats with those bogus numbers, so we'll group them all together.
-			if (isset($result['wp_version'])) {
-				if ($result['wp_version'] === '') {
-					$result['wp_version'] = '-';
+			if (isset($result['cms_version'])) {
+				if ($result['cms_version'] === '') {
+					$result['cms_version'] = '-';
 				}
-				if (($result['wp_version'] !== '-') && (!$this->looksLikeNormalWpVersion($result['wp_version']))) {
-					$result['wp_version'] = self::INVALID_VER_REPLACEMENT;
+				if (($result['cms_version'] !== '-') && (!$this->looksLikeNormalWpVersion($result['cms_version']))) {
+					$result['cms_version'] = self::INVALID_VER_REPLACEMENT;
 				}
 			}
 
-			//Aggregate WordPress and PHP patch versions (e.g. 4.7.1 => 4.7).
-			foreach(['wp_version', 'php_version'] as $field) {
-				$result[$field . '_aggregate'] = $this->getAggregateVersion($result[$field]);
+			//Aggregate WordPress (e.g. 4.7.1 => 4.7).
+			foreach(['cms_version'] as $field) {	
+				$result[$field . '_aggregate'] = $result['cms'] . '/' .  $this->getAggregateVersion( $result[$field]);
 			}
+
+
+			//Aggregate PHP patch versions (e.g. 4.7.1 => 4.7).
+			foreach(['php_version'] as $field) {
+				$result[$field . '_aggregate'] = $this->getAggregateVersion( $result[$field]);
+			}
+
 		} else {
 			throw new LogParserException(sprintf(
 				'Failed to parse line #%d',
@@ -382,7 +443,7 @@ class BasicLogAnalyser {
 		//This is useful for seeing if people running old WP/PHP versions update plugins. Storing every
 		//combination would take a lot of space, so we just record some percentiles.
 		$combinations = [
-			['wp_version_aggregate', 'installed_version'],
+			['cms_version_aggregate', 'installed_version'],
 			['php_version_aggregate', 'installed_version'],
 		];
 		$insertCombination = $this->database->prepare(
@@ -678,9 +739,10 @@ class BasicLogAnalyser {
 				"slug_id" integer not null,
 				"action" varchar(30) null,
 				"installed_version" varchar(30) null,
-				"wp_version" varchar(20) null,
+				"cms" varchar(20) null,
+				"cms_version" varchar(20) null,
 				"php_version" varchar(20) null,
-				"wp_version_aggregate" varchar(15) null,
+				"cms_version_aggregate" varchar(15) null,
 				"php_version_aggregate" varchar(15) null,
 				"site_url" varchar(100) null
 			)'
