@@ -273,13 +273,11 @@ class BasicLogAnalyser {
 
 
 		if ( preg_match('/^\[(?P<timestamp>[^\]]+)\]\s(?P<ip>\S+)\s+(?P<remainder>.+)$/', $line, $matches) ) {
+			
 			$result['timestamp'] = strtotime($matches['timestamp']);
 			$result['ip'] = $matches['ip'];
 
-
-			$values = explode("\t", $matches['remainder']);		
-			
-			
+			$values = explode("\t", $matches['remainder']);
 			
 			foreach($values as $index => $value) {
 				if ( isset($columns[$index]) ) {
@@ -321,8 +319,8 @@ class BasicLogAnalyser {
 							$param = array();
 							foreach ($parts as $key => $value) {
 								$compatible = explode('=', $value)[0];
-								$classic_press_version = explode('=', $value)[1];
-								$param[$compatible] = $classic_press_version;
+								$classicPressVersion = explode('=', $value)[1];
+								$param[$compatible] = $classicPressVersion;
 							}
 
 							if($param['wp_compatible']){							
@@ -350,8 +348,9 @@ class BasicLogAnalyser {
 			 * If there is not CMS detected, we assume WordPress
 			 *
 			 */			
-			if(!isset($result['cms']))
+			if(!isset($result['cms'])){
 				$result['cms'] = 'WP';
+			}
 
 
 			//Some sites obfuscate their WordPress version number or replace it with something weird. We don't

@@ -53,7 +53,7 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 
-	<title>WP / CP Update Server Stats - <?php echo htmlentities($report->getSlug()); ?></title>
+	<title>Update Server Stats - <?php echo htmlentities($report->getSlug()); ?></title>
 
 	<!-- Bootstrap -->
 	<link href="vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
