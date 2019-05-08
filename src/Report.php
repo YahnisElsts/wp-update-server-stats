@@ -55,9 +55,9 @@ class Report {
 		}, __METHOD__);
 	}
 
-	public function getWordPressVersionChart() {
+	public function getCMSVersionChart() {
 		return $this->cache(function() {
-			return $this->getChart('wp_version_aggregate', array($this, 'compareVersionsDesc'), 'unique_sites', 0.09);
+			return $this->getChart('cms_version_aggregate', array($this, 'compareVersionsDesc'), 'unique_sites', 0.09);
 		}, __METHOD__);
 	}
 
@@ -91,7 +91,7 @@ class Report {
 			':metric' => $metricName,
 			':fromDate' => $this->dateRange->startDate(),
 			':toDate' => $this->dateRange->endDate(),
-		]);
+		]);		
 
 		return new ChartData(
 			$this->metricQuery->fetchAll(PDO::FETCH_ASSOC),

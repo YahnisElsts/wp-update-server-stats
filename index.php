@@ -31,7 +31,7 @@ $report = new Report($db, $slug, $_GET);
 $charts = [
 	'activeInstalls' => $report->getChart('total_hits')->renameEmptyValueSeries('Unique sites'),
 	'activeVersions' => $report->getActiveVersionChart(),
-	'wordPressVersions' => $report->getWordPressVersionChart(),
+	'cmsVersions' => $report->getCMSVersionChart(),
 	'phpVersions' => $report->getPhpVersionChart(),
 	'requests' => $report->getRequestChart(),
 ];
@@ -53,7 +53,7 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 
-	<title>WP Update Server Stats - <?php echo htmlentities($report->getSlug()); ?></title>
+	<title>Update Server Stats - <?php echo htmlentities($report->getSlug()); ?></title>
 
 	<!-- Bootstrap -->
 	<link href="vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -143,8 +143,8 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 			drawAreaChart('active-version-history', chartData.activeVersions.area);
 			drawPieChart('active-version-pie', chartData.activeVersions.pie);
 
-			drawAreaChart('wordpress-version-history', chartData.wordPressVersions.area);
-			drawPieChart('wordpress-version-pie', chartData.wordPressVersions.pie);
+			drawAreaChart('cms-version-history', chartData.cmsVersions.area);
+			drawPieChart('cms-version-pie', chartData.cmsVersions.pie);
 
 			drawAreaChart('php-version-history', chartData.phpVersions.area);
 			drawPieChart('php-version-pie', chartData.phpVersions.pie);
@@ -334,14 +334,14 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 		</div>
 
 		<div class="row">
-			<div class="col-md-12"><h2>WordPress versions</h2></div>
+			<div class="col-md-12"><h2>CMS versions</h2></div>
 		</div>
 		<div class="row">
 			<div class="col-md-9">
-				<div id="wordpress-version-history" class="chart area-chart"></div>
+				<div id="cms-version-history" class="chart area-chart"></div>
 			</div>
 			<div class="col-md-3">
-				<div id="wordpress-version-pie" class="chart"></div>
+				<div id="cms-version-pie" class="chart"></div>
 			</div>
 		</div>
 
@@ -372,8 +372,8 @@ $requestsPerSecond = $report->getTotalRequests() / $report->getDateRange()->getD
 		<div class="row">
 		<?php
 		$combos = [
-			'WordPress vs Package version' => [
-				'WordPress' => 'wp_version_aggregate',
+			'CMS vs Package version' => [
+				'CMS' => 'cms_version_aggregate',
 				'Package version' => 'installed_version',
 			],
 			'PHP vs Package version' => [
